@@ -46,24 +46,33 @@ def load_model():
   return net
 
 
-st.set_page_config(page_title="CIFAR-10 Image Classifier", page_icon="🖼️")
+st.set_page_config(page_title="CIFAR-10 Image Classifier", page_icon="🖼️", layout="wide")
 st.title("CIFAR-10 Image Classifier")
-st.write("Upload an image and the CNN will predict which of these classes it belongs to: "
-         + ", ".join(class_names) + ".")
+st.caption("Classes: " + ", ".join(class_names))
+st.write("")
 
-uploaded = st.file_uploader("Choose an image", type=["jpg", "jpeg", "png", "webp", "bmp"])
+left, _, right = st.columns([5, 1, 5])
 
-if uploaded is not None:
-  image = Image.open(uploaded).convert("RGB")
-  st.image(image, caption="Uploaded image", width="stretch")
+with left:
+  st.subheader("Image")
+  uploaded = st.file_uploader("Choose an image", type=["jpg", "jpeg", "png", "webp", "bmp"],
+                              label_visibility="collapsed")
+  if uploaded is not None:
+    image = Image.open(uploaded).convert("RGB")
+    st.image(image, width="stretch")
 
-  net = load_model()
-  with torch.no_grad():
-    output = net(transform(image).unsqueeze(0))
-    probs = F.softmax(output, dim=1)[0]
-
-  top = int(probs.argmax())
-  st.success(f"Prediction: **{class_names[top]}** ({probs[top].item():.1%} confidence)")
-
+with right:
   st.subheader("Class probabilities")
-  st.bar_chart({"probability": {name: probs[i].item() for i, name in enumerate(class_names)}})
+  if uploaded is None:
+    st.info("Upload an image on the left to see predictions.")
+  else:
+    net = load_model()
+    with torch.no_grad():
+      output = net(transform(image).unsqueeze(0))
+      probs = F.softmax(output, dim=1)[0]
+
+    top = int(probs.argmax())
+    st.metric("Prediction", class_names[top], f"{probs[top].item():.1%} confidence", delta_color="off")
+    st.write("")
+    st.bar_chart({"probability": {name: probs[i].item() for i, name in enumerate(class_names)}},
+                 horizontal=True, height=380)

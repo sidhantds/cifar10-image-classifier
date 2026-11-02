@@ -13,19 +13,37 @@ A small convolutional neural network, built from scratch in PyTorch, that sorts 
 > I built this project to learn how a CNN works end to end, from loading data to training, evaluating and deploying a model. I didn't set out to build the most accurate classifier I could.
 > - **It gets about 1 in 3 test images wrong.** Modern models score above 99% on CIFAR-10, but they are much larger and are usually pretrained on millions of extra images.
 > - **It's sometimes confidently wrong.** Of the 3,179 test images it got wrong, 458 were predicted with more than 90% confidence, so a high confidence score doesn't guarantee a correct answer.
-> - **Your own photos may do worse than the test set.** The app shrinks every upload to 32×32 pixels, and real photos often look different from CIFAR-10 images.
+> - **Your own photos may do worse than the test set.** The app shrinks every upload to 32×32 pixels, and real photos often look different from CIFAR-10 images. See the [real-photo examples](#real-photos).
 >
 > The [Limitations](#limitations) and [Possible next steps](#possible-next-steps) sections explain why it falls short and how I would improve it.
 
 ## Demo
 
-The model running in the deployed Streamlit app, on two images from the CIFAR-10 test set:
+![The Streamlit app classifying a car, a cat and a plane](assets/demo.gif)
 
-| Correct: a horse | Wrong: a cat predicted as a dog |
+The deployed app with three real photos: it gets the car and the plane right, and mistakes the cat for a dog.
+
+| Correct: a car | Wrong: a cat predicted as a dog |
 |---|---|
-| ![Streamlit app predicting horse with 99.5% confidence](assets/app_correct.png) | ![Streamlit app predicting dog with 59.5% confidence for a cat image](assets/app_wrong.png) |
+| ![Streamlit app predicting car with 98.6% confidence](assets/app_car.png) | ![Streamlit app predicting dog with 58.5% confidence for a photo of a cat](assets/app_cat.png) |
 
-The second example shows the model's most common mistake. It gives "dog" 59.5% and "cat" about 29%, so it does consider the right answer, but it ranks it second.
+The cat shows the model's most common mistake. It gives "dog" 58.5% and "cat" about 32%, so it does consider the right answer, but it ranks it second.
+
+### Real photos
+
+![Predictions on seven real photos: car, plane, ship and frog correct; cat, toad and a front view of a car wrong](assets/real_photos.png)
+
+The model was trained only on CIFAR-10, so these show how it handles photos it was never designed for. I chose them to show both strengths and weaknesses, so the 4-out-of-7 score here is **not** an accuracy measurement.
+
+- **What works:** clear side views of the subject against a simple background, similar to how CIFAR-10 images are framed.
+- **What fails:**
+  - **Cat:** the model has trouble telling cats and dogs apart, which matches the test-set results.
+  - **Toad:** its colour blends into the rocks, which probably makes the shape hard to pick out at 32×32.
+  - **Car from the front:** the busy stickers and the unusual angle are likely causes.
+
+  I haven't tested these explanations for the toad and the car.
+
+The grid shows a square crop of each photo, while the model sees the whole image resized to 32×32.
 
 ## Results
 
@@ -197,6 +215,18 @@ Run every cell in order, including the training and `torch.save` cells. This ove
 ## Acknowledgements
 
 The CIFAR-10 dataset comes from Alex Krizhevsky, [*Learning Multiple Layers of Features from Tiny Images*](https://www.cs.toronto.edu/~kriz/learning-features-2009-TR.pdf), 2009.
+
+The real photos come from Wikimedia Commons and are in the public domain or released under CC0:
+
+| Photo | Author | Licence |
+|---|---|---|
+| [Car (Toyota Corona)](https://commons.wikimedia.org/wiki/File:1980_Toyota_Corona_(XT130)_CS_sedan_(2006-11-26)_03.jpg) | Daniel Cleaveley | Public domain |
+| [Plane (KLM Boeing 737)](https://commons.wikimedia.org/wiki/File:Boeing_737-800_PH-BCA_KLM_takeoff_at_Schiphol.JPG) | Alf van Beem | Public domain |
+| [Container ship](https://commons.wikimedia.org/wiki/File:Container_ship_in_Koper_2013.jpg) | Martin Dörsch | CC0 |
+| [Green tree frog](https://commons.wikimedia.org/wiki/File:Australia_green_tree_frog_(Litoria_caerulea)_crop.jpg) | LiquidGhoul | Public domain |
+| [Cat](https://commons.wikimedia.org/wiki/File:Domestic_cat_2011_G02.jpg) | George Chernilevsky | Public domain |
+| [Cane toad](https://commons.wikimedia.org/wiki/File:Bufo_marinus_in_Venezuela.jpg) | Wilfredor | CC0 |
+| [Car front (Volkswagen Golf)](https://commons.wikimedia.org/wiki/File:Volkswagen_Golf_Pachura_front_Poznan_2011.jpg) | Peżot | CC0 |
 
 ## License
 

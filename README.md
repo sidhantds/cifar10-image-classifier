@@ -103,7 +103,7 @@ These are the first six correct and first six wrong predictions in the test set,
 - **Backgrounds may be misleading the model.** 112 planes were predicted as ships and 108 deer as birds. Shared backgrounds, such as blue sky and water, are a possible cause, but this hasn't been tested.
 - **The model is overfitting.** The 17-point gap between training and test accuracy shows that it learned details of the training images that don't carry over to new ones.
 
-## Architecture
+## Network architecture
 
 ```mermaid
 flowchart LR
@@ -160,6 +160,63 @@ Images work best when they show a single, clear subject from one of the 10 class
 ### 4. Retrain the model
 
 Run every cell in order, including the training and `torch.save` cells. This overwrites `trained_net.pth`. The notebook runs on the CPU and sets no random seed, so your exact numbers will differ.
+
+## System design
+
+### Architecture
+
+```mermaid
+flowchart LR
+    subgraph OFF["Offline: ImageClassifierCNN.ipynb"]
+        HF[("CIFAR-10<br/>Hugging Face")] --> DS["CifarData Dataset<br/>ToTensor + Normalize"]
+        DS --> DLD["DataLoader<br/>batch 32, shuffled"]
+        DLD --> TRN["NeuralNet training<br/>SGD, 30 epochs"]
+    end
+
+    TRN --> W[("trained_net.pth<br/>state_dict: weights only, 369 KB")]
+
+    subgraph ON["Online: Streamlit app.py"]
+        UP["Uploaded image"] --> PRE["Resize to 32×32<br/>ToTensor + Normalize"]
+        NET["NeuralNet class<br/>(same definition, copied)"]
+        PRE --> NET --> SM["Softmax<br/>10 probabilities"]
+    end
+
+    W -- "loaded once, st.cache_resource" --> NET
+    SM --> UI(["Prediction + bar chart"])
+```
+
+The contract between training and serving has **three parts**, and all three must match exactly: the network definition, the preprocessing (`Normalize` with mean and standard deviation of 0.5), and the weights file.
+
+### What happens when someone uploads a photo
+
+1. Streamlit reruns the whole script on every interaction. `st.cache_resource` makes sure the model is built and its weights loaded only once per server process, and then shared by every visitor.
+2. The image is converted to RGB, resized to 32×32 and normalized to the range −1 to 1, the same range the network saw in training.
+3. A single forward pass runs inside `torch.no_grad()`, so no gradients are tracked and memory stays flat.
+4. Softmax turns the 10 raw scores into probabilities, and the largest one becomes the prediction.
+
+### Design decisions and trade offs
+
+| Decision | Why | Cost |
+|---|---|---|
+| Save a `state_dict`, not the whole model object | Portable and safe to load; it does not depend on how the notebook was set up | The network class has to exist in two files |
+| Commit the weights to the repo | 369 KB is small, so the demo works straight after cloning, with no retraining | Every retrain adds a binary to git history |
+| CPU only PyTorch build | Much smaller install, which fits free hosting; 91,270 parameters do not need a GPU | Retraining on this setup is slow |
+| Model in the same process as the UI | One deploy, one free container, no network hop | The UI and the model cannot scale separately |
+
+### Where training and serving can drift apart
+
+* **The network definition is copied.** If one copy changes, `load_state_dict` fails with a shape or key error. This is the safe kind of failure, because it is loud.
+* **Preprocessing is also copied.** If the normalization values drift, nothing fails. The model simply gets worse without any error. This is the dangerous kind of failure. Moving the transform and the class into one shared `model.py` would remove both risks.
+* **Resizing only happens at serving time.** CIFAR-10 images are already 32×32, so training never resizes. A wide phone photo gets squashed into a square at serving time, which changes the shapes the network sees. Cropping the centre to a square before resizing would keep the proportions.
+
+### Scaling
+
+Streamlit Community Cloud runs one container. For real traffic, the model would move behind a small API with request batching, so one forward pass can serve many images at once, and the UI would call it over HTTP.
+
+### Known gaps
+
+* **No "none of these" answer.** Softmax always spreads 100% over the 10 classes, so a photo of a person still gets a confident label. A confidence floor, or a check for unfamiliar inputs, would let the app say "not sure."
+* **The confidence is not calibrated.** 458 wrong test predictions had more than 90% confidence. Temperature scaling on a validation set would make the number more honest.
 
 ## Training setup
 
